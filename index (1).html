@@ -72,7 +72,7 @@
           <option value="">Elegir…</option>
           <option>Torrevieja</option>
           <option>Benidorm</option>
-          <option>Otra</option>
+          <option>Elche</option>
         </select>
       </div>
       <div id="boxServicio">
@@ -123,7 +123,7 @@
 <script>
 (function () {
   // ===== CONFIGURACIÓN (cambia lo que necesites) =====
-  var EMAIL_DESTINO = "";   // Ej.: "calidad@tuempresa.es". Vacío = lo eliges al compartir.
+  var EMAIL_DESTINO = "avanzalevante@gmail.com";
   var ASUNTO = "Cliente misterioso – ficha de visita";
   // Criterios de cada tipo de inspección (basados en las áreas de la norma UNE-EN 13816).
   // Para cambiarlos: edita, añade o borra líneas de cada lista.
@@ -382,25 +382,29 @@
     // 1) Compartir desde el móvil (correo, Teams, WhatsApp…) con Excel, ficha y fotos.
     //    Si el móvil no admite algún tipo de archivo, se prueba con menos archivos.
     var intentos = [[xl, txt].concat(archivos), [xl].concat(archivos), archivos];
-    if (navigator.canShare && navigator.share) {
-      for (var k = 0; k < intentos.length; k++) {
-        if (intentos[k].length && navigator.canShare({ files: intentos[k] })) {
-          navigator.share({ title: ASUNTO, text: texto, files: intentos[k] })
-            .then(function () { aviso("Ficha compartida. Si no has llegado a enviarla, vuelve a pulsar Enviar.", "ok"); })
-            .catch(function (e) { if (e && e.name !== "AbortError") aviso("No se pudo compartir: " + e.message, "err"); });
-          return;
-        }
-      }
+    // 2) Alternativa: descargar Excel, ficha y fotos, y abrir el correo para adjuntarlos a mano
+    function porDescarga() {
+      descargar(xl, xl.name);
+      setTimeout(function () { descargar(txt, txt.name); }, 400);
+      archivos.forEach(function (a, i) { setTimeout(function () { descargar(a, a.name); }, 400 * (i + 2)); });
+      var cuerpo = texto + "\n\n(Adjunta el Excel y las fotos descargados.)";
+      var url = "mailto:" + encodeURIComponent(EMAIL_DESTINO) + "?subject=" + encodeURIComponent(ASUNTO) + "&body=" + encodeURIComponent(cuerpo);
+      setTimeout(function () { location.href = url; }, 400 * (archivos.length + 3));
+      aviso("Tu móvil no ha permitido compartir. Se han descargado el Excel, la ficha y las fotos. Se abrirá tu correo para que los adjuntes y envíes.", "ok");
     }
 
-    // 2) Alternativa: descargar Excel, ficha y fotos, y abrir el correo para adjuntarlos a mano
-    descargar(xl, xl.name);
-    setTimeout(function () { descargar(txt, txt.name); }, 400);
-    archivos.forEach(function (a, i) { setTimeout(function () { descargar(a, a.name); }, 400 * (i + 2)); });
-    var cuerpo = texto + "\n\n(Adjunta el Excel y las fotos descargados.)";
-    var url = "mailto:" + encodeURIComponent(EMAIL_DESTINO) + "?subject=" + encodeURIComponent(ASUNTO) + "&body=" + encodeURIComponent(cuerpo);
-    setTimeout(function () { location.href = url; }, 400 * (archivos.length + 3));
-    aviso("Se han descargado el Excel, la ficha y las fotos. Se abrirá tu correo para que los adjuntes y envíes.", "ok");
+    function intentar(i) {
+      if (!(navigator.canShare && navigator.share) || i >= intentos.length) { porDescarga(); return; }
+      var lista = intentos[i];
+      if (!lista.length || !navigator.canShare({ files: lista })) { intentar(i + 1); return; }
+      navigator.share({ title: ASUNTO, text: texto, files: lista })
+        .then(function () { aviso("Ficha compartida. Si no has llegado a enviarla, vuelve a pulsar Enviar.", "ok"); })
+        .catch(function (e) {
+          if (e && e.name === "AbortError") return;   // la persona canceló
+          intentar(i + 1);                             // si falla, se prueba con menos archivos
+        });
+    }
+    intentar(0);
   });
 
   $("btnNueva").addEventListener("click", function () {
